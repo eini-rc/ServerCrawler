@@ -1,67 +1,81 @@
 <?php
 
-use Laravel\Sanctum\Sanctum;
-
 return [
 
     /*
     |--------------------------------------------------------------------------
-    | Stateful Domains
+    | Default Authentication Guard
     |--------------------------------------------------------------------------
     |
-    | Requests from the following domains / hosts will receive stateful API
-    | authentication cookies. Typically, these should include your local
-    | and production domains which access your API via a frontend SPA.
+    | This option controls the default authentication "guard" and provider
+    | used by your application. You may change these defaults as required,
+    | but they're a perfect start for most applications.
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort()
-    ))),
+    'defaults' => [
+        'guard' => 'web',
+        // 'passwords' => 'users',
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Sanctum Guards
+    | Authentication Guards
     |--------------------------------------------------------------------------
     |
-    | This array contains the authentication guards that will be checked when
-    | Sanctum is trying to authenticate a request. If none of these guards
-    | are able to authenticate the request, Sanctum will use the bearer
-    | token that's present on an incoming request for authentication.
+    | Here you may define each authentication guard for your application.
+    | Supported: "session", "token"
     |
     */
 
-    'guard' => ['web'],
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'api' => [
+            'driver' => 'token',
+            'provider' => 'users',
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Expiration Minutes
+    | User Providers
     |--------------------------------------------------------------------------
     |
-    | This value controls the number of minutes until an issued token will be
-    | considered expired. If this value is null, personal access tokens do
-    | not expire. This won't tweak the lifetime of first-party sessions.
+    | All authentication drivers have a user provider. This defines how the
+    | users are actually retrieved out of your database or other storage
+    | mechanisms used by this application to persist your user's data.
     |
     */
 
-    'expiration' => null,
+    'providers' => [
+        // 'users' => [
+        //     'driver' => 'eloquent',
+        //     'model' => App\Models\User::class,
+        // ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Sanctum Middleware
+    | Resetting Passwords
     |--------------------------------------------------------------------------
     |
-    | When authenticating your first-party SPA with Sanctum you may need to
-    | customize some of the middleware Sanctum uses while processing the
-    | request. You may change the middleware listed below as required.
+    | Here you may set the options for resetting passwords including the view
+    | that is your password reset e-mail. You may also set the name of the
+    | table that maintains all of the reset tokens for your application.
     |
     */
 
-    'middleware' => [
-        'verify_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
-        'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
+    'passwords' => [
+        'users' => [
+            'provider' => 'users',
+            'table' => 'password_resets',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
 ];
