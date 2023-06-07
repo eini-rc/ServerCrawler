@@ -10,7 +10,11 @@ class Url extends Model
 
     protected $connection = 'mongodb';
 
-    protected $table = 'Urls2';
+    protected $collection = 'Urls';
 
     protected $fillable = ['url'];
+
+    protected $indexes = [
+        ['key' => ['url' => 1], 'unique' => true],
+    ];
 }

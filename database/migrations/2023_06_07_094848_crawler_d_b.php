@@ -21,6 +21,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::connection('mongodb')->dropIfExists('Url');
+        Schema::connection('mongodb')->dropIfExists('Urls');
     }
 };
