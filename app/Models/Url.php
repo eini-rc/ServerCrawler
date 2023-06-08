@@ -12,7 +12,7 @@ class Url extends Model
 
     protected $collection = 'Urls';
 
-    protected $fillable = ['url'];
+    protected $fillable = ['url', 'parent_url'];
 
     protected $indexes = [
         ['key' => ['url' => 1], 'unique' => true],

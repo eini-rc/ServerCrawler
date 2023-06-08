@@ -10,4 +10,9 @@ class UrlRepository
     {
         Url::insert($newUrls);
     }
+
+    public function getUrlByKey($whereValue, $whereKey)
+    {
+        return Url::where([$whereKey => $whereValue])->get();
+    }
 }

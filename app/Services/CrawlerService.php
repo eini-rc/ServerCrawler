@@ -12,6 +12,9 @@ class CrawlerService
     protected $urlRepository;
     protected $httpClient;
     protected $urlsResults = [];
+    protected $shouldCrawler = false;
+    protected $depthToContinue = null;
+    protected $prevUrls = [];
 
     public function __construct(UrlRepository $urlRepository, Client $httpClient)
     {
@@ -19,33 +22,63 @@ class CrawlerService
         $this->httpClient = $httpClient;
     }
 
-    public function crawlUrls($url, $depth)
+    public function crawlUrlsAndSave($url, $depth, $parentUrl = null)
     {
-        return $this->crawlUrl($url, $depth);
-    }
+        $savedSubUrls = $this->crawlUrl($url, $depth, $parentUrl);
 
-    protected function crawlUrl($url, $depth)
+        // remove duplicate that saved in db
+        $urlsForSave = $this->diffArraysByKey($this->urlsResults, $savedSubUrls);
+
+        // remove duplicate if website has duplicate url
+        $urlsForSave = $this->removeDuplicatesByKey($urlsForSave, 'url');
+
+        if (count($urlsForSave)) {
+            $this->urlRepository->saveUrls($urlsForSave);
+        }
+        return $this->urlsResults;
+    }
+    protected function removeDuplicatesByKey($array, $key)
     {
-        if ($depth === 0) {
-            return;
+        return array_values(array_reduce($array, function ($carry, $item) use ($key) {
+            $value = $item[$key];
+            if (!isset($carry[$value])) {
+                $carry[$value] = $item;
+            }
+            return $carry;
+        }, []));
+    }
+    protected function crawlUrl($url, $depth, $parentUrl = null)
+    {
+        if (!$depth) {
+            $this->urlsResults[] = ['url' => $url, 'parent_url' => $parentUrl];
+            return [];
+        }
+        $savedSubUrls = $this->getSavedSubUrls($url, 0, $depth);
+
+        if (count($savedSubUrls)) {
+            // check if all depth found from db
+            if (!$savedSubUrls['shouldCrawler']) {
+                $this->urlsResults = $savedSubUrls['subUrls'];
+                return $savedSubUrls['subUrls'];
+            }
+            // continue from depth that not save
+            $depth = $savedSubUrls['depthToContinue'] ?? $depth;
         }
 
         try {
             $content = $this->getContentFromUrl($url);
-            $this->urlsResults[] = ['url' => $url];
+            $this->urlsResults[] = ['url' => $url, 'parent_url' => $parentUrl];
 
             if ($depth > 1) {
-                $links = $this->extractLinks($content);
-                foreach ($links as $link) {
-                    $this->crawlUrl($link, $depth - 1);
+                $subUrlsFromContent = $this->extractLinks($content);
+                foreach ($subUrlsFromContent as $subUrl) {
+                    $this->crawlUrl($subUrl, $depth - 1, $url); // Pass the current URL as the parent URL
                 }
             }
-            // Log::info(phpinfo());
         } catch (GuzzleException $e) {
             Log::error(`URL not valid`);
         } finally {
-            $this->urlRepository->saveUrls($this->urlsResults);
-            return $this->urlsResults;
+            return $savedSubUrls['subUrls'];
         }
     }
 
@@ -74,11 +107,42 @@ class CrawlerService
 
         preg_match_all($pattern, $html, $matches);
 
-
         foreach ($matches[1] as $url) {
             $links[] = $url;
         }
 
         return $links;
+    }
+
+    protected function getSavedSubUrls($parentUrl, $depth, $orginalDepth)
+    {
+        if ($depth === $orginalDepth) {
+            return ['subUrls' => $this->prevUrls, 'shouldCrawler' => false];
+
+        }
+
+        $subUrls = $this->urlRepository->getUrlByKey($parentUrl, $depth === 0 ? 'url' : 'parent_url');
+
+        if (!count($subUrls)) {
+            $this->shouldCrawler = true;
+            $this->depthToContinue = $depth + 1;
+        }
+
+        foreach ($subUrls as $subUrl) {
+            $this->prevUrls[] = $subUrl;
+            $this->getSavedSubUrls($subUrl->url, $depth + 1, $orginalDepth);
+        }
+
+        return ['subUrls' => $this->prevUrls, 'shouldCrawler' => $this->shouldCrawler, 'depthToContinue' => $this->depthToContinue];
+    }
+
+    function diffArraysByKey(array $mainArray, array $itemsToRemove, string $key = 'url'): array
+    {
+        $keys = array_map('json_encode', array_column($itemsToRemove, $key));
+        $filteredArr = array_filter($mainArray, function ($item) use ($keys, $key) {
+            return !in_array(json_encode($item[$key]), $keys);
+        });
+
+        return array_values($filteredArr);
     }
 }

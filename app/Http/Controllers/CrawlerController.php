@@ -19,8 +19,7 @@ class CrawlerController extends Controller
         $url = $request->input('url');
         $depth = $request->input('depth');
 
-        $results = $this->crawlerService->crawlUrls($url, $depth);
-
+        $results = $this->crawlerService->crawlUrlsAndSave($url, $depth);
         return response()->json($results);
     }
 }
